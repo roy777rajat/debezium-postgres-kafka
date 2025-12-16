@@ -1,0 +1,9 @@
+### RESGISTER SOURCE CONNECTOR ################
+curl -X POST http://localhost:8083/connectors \
+  -H "Content-Type: application/json" \
+  -d @postgres-debezium-connector.json
+
+### RESGISTER SINK CONNECTOR ################
+curl -X POST http://localhost:8083/connectors \
+  -H "Content-Type: application/json" \
+  -d @s3-sink.json

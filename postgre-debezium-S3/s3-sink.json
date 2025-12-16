@@ -1,0 +1,14 @@
+{
+  "name": "s3-sink",
+  "config": {
+    "connector.class": "io.confluent.connect.s3.S3SinkConnector",
+    "tasks.max": "1",
+    "topics": "pgsrc.public.fund_metadata,pgsrc.public.fund_unit",
+    "s3.bucket.name": "<your-bucket>",
+    "s3.region": "<your-region>",
+    "flush.size": "3",
+    "format.class": "io.confluent.connect.s3.format.json.JsonFormat",
+    "storage.class": "io.confluent.connect.s3.storage.S3Storage",
+    "schema.compatibility": "NONE"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "postgres-cdc",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "pguser",
+    "database.password": "pgpassword",
+    "database.dbname": "finance",
+    "database.server.name": "pgsrc",
+    "topic.prefix":"pgsrc",
+    "plugin.name": "pgoutput",
+    "slot.name": "debezium_slot",
+    "publication.name": "dbz_pub",
+    "tombstones.on.delete": "false",
+    "snapshot.mode": "initial",
+    "table.include.list": "public.fund_metadata,public.fund_unit",
+    "key.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "key.converter.schemas.enable": "false",
+    "value.converter.schemas.enable": "false",
+
+    "transforms": "addSource,renameField",
+
+    "transforms.addSource.type": "org.apache.kafka.connect.transforms.InsertField$Value",
+    "transforms.addSource.static.field": "source_system",
+    "transforms.addSource.static.value": "finance_db",
+
+    "transforms.renameField.type": "org.apache.kafka.connect.transforms.ReplaceField$Value",
+    "transforms.renameField.renames": "fund_name:name"
+  }
+}

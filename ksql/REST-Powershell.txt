@@ -1,0 +1,11 @@
+$ksqlQuery = @{
+    ksql = "SELECT * FROM FUND_PRICE_TABLE LIMIT 10;"
+    streamsProperties = @{}
+} | ConvertTo-Json
+
+$response = Invoke-RestMethod -Uri "http://localhost:8088/query" `
+    -Method Post `
+    -ContentType "application/vnd.ksql.v1+json" `
+    -Body $ksqlQuery
+
+$response | ConvertTo-Json -Depth 10

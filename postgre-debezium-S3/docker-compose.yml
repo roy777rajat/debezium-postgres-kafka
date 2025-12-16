@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: pg_local
+    environment:
+      POSTGRES_USER: pguser
+      POSTGRES_PASSWORD: pgpassword
+      POSTGRES_DB: finance
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  connect:
+    image: debezium/connect:2.2
+    container_name: connect
+    depends_on:
+      - postgres
+    ports:
+      - "8083:8083"
+    environment:
+      GROUP_ID: "connect-cluster"
+      CONFIG_STORAGE_TOPIC: "connect-configs"
+      OFFSET_STORAGE_TOPIC: "connect-offsets"
+      STATUS_STORAGE_TOPIC: "connect-status"
+      KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      KEY_CONVERTER_SCHEMAS_ENABLE: "false"
+      VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+      BOOTSTRAP_SERVERS: ""  # Empty because no Kafka
+      AWS_ACCESS_KEY_ID: "<your-access-key>"
+      AWS_SECRET_ACCESS_KEY: "<your-secret-key>"
+      S3_BUCKET_NAME: "<your-bucket>"
+      S3_REGION: "<your-region>"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
