@@ -1,34 +1,64 @@
-DROP TABLE FUND_PRICE_TABLE;
-DROP STREAM FUND_METADATA_FLAT;
+--Cleaning
+DROP TABLE FUND_PRICE_TABLE DELETE TOPIC;
+DROP TABLE FUND_TABLE DELETE TOPIC;
+
+DROP STREAM FUND_METADATA_FLAT DELETE TOPIC;
+DROP STREAM FUND_METADATA_FLOAT DELETE TOPIC;
 DROP STREAM FUND_METADATA_STREAM;
 
-
-
-
-
+--Creating Stream
 CREATE STREAM FUND_METADATA_STREAM (
-    after STRUCT<
-        fund_code STRING,
-        fund_price DOUBLE
-    >
+  after STRUCT<
+    fund_code STRING,
+    fund_price DOUBLE
+  >,
+  op STRING
 ) WITH (
-    KAFKA_TOPIC='pgsrc.public.fund_metadata',
-    VALUE_FORMAT='JSON'
+  KAFKA_TOPIC='pgsrc.public.fund_metadata',
+  VALUE_FORMAT='JSON'
 );
 
+--Transformation
 CREATE STREAM FUND_METADATA_FLAT AS
 SELECT
-    after->fund_code AS fund_code,
-    after->fund_price AS fund_price
+  after->fund_code  AS fund_code,
+  after->fund_price AS fund_price,
+  op                AS operation
 FROM FUND_METADATA_STREAM
 EMIT CHANGES;
 
+--Sink
 CREATE TABLE FUND_PRICE_TABLE AS
 SELECT
-    fund_code,
-    LATEST_BY_OFFSET(fund_price) AS fund_price
+  'FUND_METADATA'                                      AS table_name,
+
+  COUNT(*)                                             AS total_records,
+
+  SUM(CASE WHEN operation = 'c' THEN 1 ELSE 0 END)     AS insert_count,
+
+  SUM(CASE WHEN operation = 'u' THEN 1 ELSE 0 END)     AS update_count,
+
+  SUM(CASE WHEN operation = 'd' THEN 1 ELSE 0 END)     AS delete_count
+
 FROM FUND_METADATA_FLAT
-GROUP BY fund_code
+GROUP BY 'FUND_METADATA'
 EMIT CHANGES;
 
-SELECT * FROM FUND_PRICE_TABLE EMIT CHANGES LIMIT 10;
+--Show Streams(Delta)
+SELECT
+  CASE WHEN operation='c' THEN 1 ELSE 0 END AS insert_delta,
+  CASE WHEN operation='u' THEN 1 ELSE 0 END AS update_delta,
+  CASE WHEN operation='d' THEN 1 ELSE 0 END AS delete_delta
+FROM FUND_METADATA_FLAT
+EMIT CHANGES;
+
+
+--Show Tables (Cummalative)
+SELECT total_records,insert_count,update_count,delete_count
+FROM FUND_PRICE_TABLE
+WHERE table_name='FUND_METADATA' emit changes;
+
+
+kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic FUND_METADATA_FLOAT
+kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic FUND_TABLE
+

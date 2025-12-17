@@ -1,0 +1,77 @@
+***************To enter into PostgreSQL:
+
+docker exec -it pg_local psql -U pguser -d finance
+
+****************** DROP and RE_CREATE **************
+-- Drop the publication
+DROP PUBLICATION IF EXISTS dbz_pub;
+
+-- Drop the replication slot
+SELECT pg_drop_replication_slot('debezium_slot');
+
+
+-- Create publication
+CREATE PUBLICATION dbz_pub FOR TABLE fund_metadata, fund_unit;
+
+-- Debezium will create logical replication slot automatically if needed
+********************************************************************************************
+**************************REGISTER-DEREGISTER CONNECTOR **************************************
+Save it as postgres-debezium-connector.json.
+
+Register the connector via Kafka Connect REST API:
+
+Invoke-RestMethod -Uri "http://localhost:8083/connectors" `
+    -Method POST `
+    -Headers @{ "Content-Type" = "application/json" } `
+    -Body (Get-Content "postgres-debezium-connector.json" -Raw)
+
+
+
+Check connector status:
+
+ curl http://localhost:8083/connectors
+ Then get the connector name
+ And run
+  curl http://localhost:8083/connectors/postgres-cdc/status
+
+*** To see connector : curl http://localhost:8083/connectors/postgres-cdc/status
+
+********************TO ENTER IN KSQLDB ******************
+docker exec -it ksqldb-server ksql http://ksqldb-server:8088
+
+
+####################  Start testing CDC:  ############################
+
+-- Example inserts
+INSERT INTO fund_metadata (fund_name, fund_code, fund_description) VALUES ('New Fund A','NFA001','Test fund A');
+INSERT INTO fund_unit (fund_id, unit_value, record_date) VALUES (1, 105.25, '2025-12-03');
+
+***************CHECK KAFKA UP OR NOT ***************
+docker logs finance-pipeline-kafka-1 -f | Select-String "started"
+
+
+**** If you want to see the incremental then -o end ***********
+docker run --rm -it --network=finance-pipeline_default edenhill/kcat:1.7.0 `
+  -b kafka:9092 -C -t pgsrc.public.fund_unit -t pgsrc.public.fund_metadata -o end -J
+
+**** If you want to see the full then -o beginning  ***********
+docker run --rm -it --network=finance-pipeline_default edenhill/kcat:1.7.0 `
+  -b kafka:9092 -C -t pgsrc.public.fund_unit -t pgsrc.public.fund_metadata -o beginning  -J
+  
+  
+  
+  **********************How to check the WAL logical CDC **********
+  Setp 1 : Check the image with docker ps -a
+  Step 2 : take the name of PostgreSQL , here it is pg_local
+  Step 3 : enter into that container : docker exec -it pg_local bash
+  Step 4 : Go to database with command docker exec -it pg_local psql -U pguser -d finance
+  Step 5 : Run
+  SELECT * FROM pg_replication_slots;
+  Step 6 : Take Slot Name and Plugin so that you can provide into Spet 7
+  Step 7 : Into the container ROOT run below
+  pg_recvlogical -d finance \
+    -U pguser \
+    -S yd27iddrnrbopfji_00016384_b56a364a_c3d6_4710_8ee6_bd6af70c4c36 \
+    --start \
+    -f - \
+    --plugin test_decoding

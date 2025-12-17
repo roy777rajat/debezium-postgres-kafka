@@ -13,7 +13,7 @@ services:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
 
-  # ---------- Zookeeper (for Kafka) ----------
+  # ---------- Zookeeper ----------
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.1
     environment:
@@ -31,18 +31,16 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092,PLAINTEXT_EXTERNAL://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092,PLAINTEXT_EXTERNAL://34.244.43.92:9093
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,PLAINTEXT_EXTERNAL:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_LOG_RETENTION_MS: 86400000
       KAFKA_LOG_SEGMENT_BYTES: 104857600
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     ports:
       - "9092:9092"
-      - "29092:29092"
-      - "9093:9093"
     volumes:
       - kafka-data:/var/lib/kafka/data
     restart: unless-stopped
@@ -82,9 +80,26 @@ services:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
+  # ---------- ksqlDB ----------
+  ksqldb-server:
+    image: confluentinc/ksqldb-server:0.29.0
+    container_name: ksqldb-server
+    depends_on:
+      - kafka
+      - schema-registry
+    ports:
+      - "8088:8088"
+    environment:
+      KSQL_BOOTSTRAP_SERVERS: "kafka:9092"
+      KSQL_LISTENERS: "http://0.0.0.0:8088"
+      KSQL_KSQL_SERVICE_ID: "ksql_cdc_demo"
+      KSQL_KSQL_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      KSQL_COMMAND_TOPIC_REPLICATION_FACTOR: 1
+      KSQL_COMMAND_CONSUMER_THREADS: 1
 
 
-  # ---------- Optional kcat container ----------
+
+  # ---------- Optional kcat ----------
   kcat:
     image: edenhill/kcat:1.7.0
     entrypoint: ["sleep", "infinity"]
